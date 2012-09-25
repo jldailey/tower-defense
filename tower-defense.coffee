@@ -15,11 +15,13 @@
 if not require?
 	require = (lib) ->
 		script = document.createElement "script"
+		script.src = "js/#{lib}.js"
+		document.head.appendChild script
 
 require 'bling'
 
 deg2rad = (deg) ->
-	deg*2*Math.PI/180
+	deg*Math.PI/180
 
 Rules =
 	startingGold: 500
@@ -37,6 +39,7 @@ GetImage = (url, callback) ->
 		Images[url].on 'load', (args...) ->
 			waitingImages -= 1
 			callback.apply @, args
+	else callback.apply @, args
 
 class TimeValue # a value that changes at a constant rate
 	constructor: (func) ->
@@ -63,8 +66,7 @@ class GameObject extends $.EventEmitter
 		@emit 'destroy' # signal the game to forget about us
 	tick: (dt) -> # should update your state based on a dt amount of time having passed
 	preDraw: (ctx) ->
-		if @color?
-			ctx.fillColor @color
+		ctx.save()
 		if @x?
 			ctx.translate @x, @y
 		if @rot?
@@ -95,7 +97,7 @@ class Game
 				if guid of @index
 					@objects.splice @index[guid], 1
 					delete @index[guid]
-				
+
 	tick: (dt) ->
 		for obj in @objects
 			obj.tick(dt)
@@ -116,12 +118,18 @@ class Sprite extends GameObject
 
 class Shape extends GameObject
 	constructor: (args...) -> super.apply @, args
-	color: (rgb) ->
-		@color = rgb
+	fillStyle: (style) ->
+		@fillStyle = style
+		@
+	strokeStyle: (style) ->
+		@strokeStyle = style
+		@
 	preDraw: (ctx) ->
 		super.call @, ctx
-		if @color?
-			ctx.fillColor @color
+		if @fillStyle?
+			ctx.fillStyle @fillStyle
+		if @strokeStyle?
+			ctx.strokeStyle @strokeStyle
 
 class Circle extends Shape
 	constructor: (args...) -> super.apply @, args
@@ -141,6 +149,7 @@ Bullets =
 		name: "Basic Bullet"
 		damage: 10
 		speed: 5
+		shape: new Circle().radius(5).fillStyle("white")
 
 class Bullet extends Sprite
 	constructor: (@kind, @target) ->
@@ -202,15 +211,3 @@ class Player
 		if @inHand
 			@adjustBalance +@inHand.cost
 		@inHand = null
-
-if require.main is module
-	board = new GameBoard(6,6) # map has 6 tiles on each side
-	board.setGroundMap(
-		0,0,0,0,0,0,
-		0,0,0,0,0,0,
-		0,0,0,0,0,0,
-		0,0,0,0,0,0,
-		0,0,0,0,0,0,
-		0,0,0,0,0,0
-	)
-
