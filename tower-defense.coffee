@@ -12,34 +12,17 @@
 # Each map is a list of indices into data arrays.
 # A ground tile needs to know: an Image, 
 
-if not require?
-	require = (lib) ->
-		script = document.createElement "script"
-		script.src = "js/#{lib}.js"
-		document.head.appendChild script
-
-require 'bling'
-
 deg2rad = (deg) ->
 	deg*Math.PI/180
 
 Rules =
 	startingGold: 500
 
-waitingImages = 0
-Images = { }
-for asset in Assets
-	GetImage(url)
-	# could do this old-school arcade style and tile them across the screen
-
-GetImage = (url, callback) ->
-	if not url of Images
-		waitingImages += 1
-		Images[url] = new Image(url) # pre-load asset images
-		Images[url].on 'load', (args...) ->
-			waitingImages -= 1
-			callback.apply @, args
-	else callback.apply @, args
+Textures =
+	grass:
+		image: new Image("img/grass.jpg")
+	dirt:
+		image: new Image("img/dirt.jpg")
 
 class TimeValue # a value that changes at a constant rate
 	constructor: (func) ->
@@ -53,16 +36,16 @@ class TimeValue # a value that changes at a constant rate
 		@valueAt = (t) -> func baseValue, $.date.stamp(t) - baseTime
 class LinearValue extends TimeValue
 	constructor: (@rate) ->
-		super.call @, (x, dt) => x + (dt*@rate)
+		super (x, dt) => x + (dt*@rate)
 
 chain = (f) -> (args...) -> (f args...); @
 GameObjects = {}
 class GameObject extends $.EventEmitter
 	constructor: ->
 		GameObjects[@guid or= $.random.string 16] = @
-		@valid = True
+		@valid = true
 	destroy: ->
-		@valid = False
+		@valid = false
 		@emit 'destroy' # signal the game to forget about us
 	tick: (dt) -> # should update your state based on a dt amount of time having passed
 	preDraw: (ctx) ->
@@ -83,7 +66,7 @@ class GameObject extends $.EventEmitter
 	proxy: chain (array, names...) ->
 		for i in [0...names.length] by 1 then do (i) ->
 			name = names[i]
-			$.defineProperty obj, name,
+			$.defineProperty @, name,
 				get: -> arr[i]
 				set: (v) -> arr[i] = v
 
@@ -108,7 +91,6 @@ class Game
 			obj.postDraw ctx
 
 class Sprite extends GameObject
-	constructor: (args...) -> super.apply @, args
 	image: (url, onload=->) ->
 		@img = new Image url
 		@img.on 'load', onload
@@ -117,7 +99,6 @@ class Sprite extends GameObject
 		ctx.drawImage @img, 0, 0, @w, @h
 
 class Shape extends GameObject
-	constructor: (args...) -> super.apply @, args
 	fillStyle: (style) ->
 		@fillStyle = style
 		@
@@ -132,12 +113,12 @@ class Shape extends GameObject
 			ctx.strokeStyle @strokeStyle
 
 class Circle extends Shape
-	constructor: (args...) -> super.apply @, args
 	radius: (deg) ->
-		@radius = deg
+		@rad = deg
+		@
 	draw: (ctx) ->
 		ctx.beginPath()
-		ctx.arc 0,0,r,0,2*Math.PI
+		ctx.arc 0,0,@rad,0,2*Math.PI
 		ctx.fill()
 		ctx.stroke()
 		ctx.closePath()
@@ -149,15 +130,16 @@ Bullets =
 		name: "Basic Bullet"
 		damage: 10
 		speed: 5
-		shape: new Circle().radius(5).fillStyle("white")
+		shape: new Circle().radius(3).fillStyle("grey")
 
 class Bullet extends Sprite
 	constructor: (@kind, @target) ->
-		@ready = False
+		@ready = false
 		$.extend @, Bullets[@kind]
 	aim: (@target) ->
+		@
 	release: ->
-		@ready = True
+		@ready = true
 	tick: (dt) ->
 		if @ready
 			d = target.pos.minus @pos # vector from us to the target
