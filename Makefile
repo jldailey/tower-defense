@@ -3,7 +3,7 @@ COFFEE=node_modules/.bin/coffee
 all: js/tower-defense.js js/bling.js js/coffee-script.js
 
 js/tower-defense.js: tower-defense.coffee $(COFFEE)
-	$(COFFEE) -o js -c tower-defense.coffee
+	@$(COFFEE) -o js -c tower-defense.coffee
 
 js/bling.js:
 	mkdir -p js
