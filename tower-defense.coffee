@@ -38,31 +38,28 @@ class LinearValue extends TimeValue
 	constructor: (@rate) ->
 		super (x, dt) => x + (dt*@rate)
 
-chain = (f) -> (args...) -> (f args...); @
-GameObjects = {}
-class GameObject extends $.EventEmitter
+chain = (f) -> (args...) -> (f.apply @, args); @
+window.GameObject = class GameObject extends $.EventEmitter
+	@index = {}
 	constructor: ->
-		GameObjects[@guid or= $.random.string 16] = @
+		super @
+		GameObject.index[@guid or= $.random.string 16] = @
 		@valid = true
 	destroy: ->
 		@valid = false
-		@emit 'destroy' # signal the game to forget about us
+		@emit 'destroy', @ # signal the game to forget about us
+
 	tick: (dt) -> # should update your state based on a dt amount of time having passed
 	preDraw: (ctx) ->
 		ctx.save()
-		if @x?
-			ctx.translate @x, @y
-		if @rot?
-			ctx.rotate deg2rad @rot
+		ctx.translate @x, @y if @x?
+		ctx.rotate deg2rad @rot if @rot?
 	draw: (ctx) -> # (optional) draw yourself
-	postDraw: (ctx) ->
-		ctx.restore()
-	rotation: chain (deg) ->
-		@rot = deg
-	position: (x, y) ->
-		@proxy @pos = $(x,y), 'x', 'y'
-	size: (w, h) ->
-		@proxy @size = $(w, h), "w", "h"
+	postDraw: (ctx) -> ctx.restore()
+
+	rotation: chain (deg) -> @rot = deg
+	position: (x, y) -> @proxy @pos = $(x,y), 'x', 'y'
+	size: (w, h) -> @proxy @size = $(w, h), "w", "h"
 	proxy: chain (array, names...) ->
 		for i in [0...names.length] by 1 then do (i) ->
 			name = names[i]
@@ -70,60 +67,80 @@ class GameObject extends $.EventEmitter
 				get: -> arr[i]
 				set: (v) -> arr[i] = v
 
-class Game
-	constructor: (objs...) ->
-		@objects = objs
-		@index = {}
-		for i in [0...@objects.length] by 1
-			@index[@objects[i].guid] = i
-			@objects[i].on 'destroy', (guid) =>
-				if guid of @index
-					@objects.splice @index[guid], 1
-					delete @index[guid]
+window.Game = class Game
+	constructor: (opts, objects...) ->
+		opts = $.extend {
+			canvas: "#canvas"
+			fps: 30
+		}, opts
+		requestInterval = window.requestAnimationFrame or
+			window.mozRequestAnimationFrame or
+			window.webkitRequestAnimationFrame or
+			window.msRequestAnimationFrame or
+			(f) -> window.setTimeout f, 1000/opts.fps
+		cancelInterval = window.cancelAnimationFrame or
+			window.mozCancelAnimationFrame or
+			window.webkitCancelAnimationFrame or
+			window.msRequestAnimationFrame or
+			window.clearInterval
+		ctx = $(opts.canvas).select('getContext').call('2d').first()
+		interval = null
+		objects = $()
+		$.extend @,
+			add: chain (item) ->
+				objects.push item
+				item.on 'destroy', (x) ->
+					if (i = objects.indexOf x) > -1
+						objects.splice i, 1
+			start: ->
+				t = $.now
+				f = ->
+					t += (dt = t - $.now)
+					objects.select('tick').call dt
+					objects.select('preDraw').call ctx
+					objects.select('draw').call ctx
+					objects.select('postDraw').call ctx
+					interval = requestInterval f
+				interval = requestInterval f
+			stop: ->
+				cancelInterval interval
 
-	tick: (dt) ->
-		for obj in @objects
-			obj.tick(dt)
-	draw: (ctx) ->
-		for obj in @objects
-			obj.preDraw ctx
-			obj.draw ctx
-			obj.postDraw ctx
-
-class Sprite extends GameObject
-	image: (url, onload=->) ->
+window.Sprite = class Sprite extends GameObject
+	image: chain (url, onload=->) ->
 		@img = new Image url
 		@img.on 'load', onload
-		@
 	draw: (ctx) ->
 		ctx.drawImage @img, 0, 0, @w, @h
 
+window.Tracer = class Tracer extends GameObject
+	tick: (dt) ->
+		console.log "Tick (dt:#{dt} fps:(#{1000/dt})"
+window.Label = class Label extends GameObject
+	text: chain (text) ->
+		@label = text
+	draw: (ctx) ->
+		ctx.fillText @label, @x, @y
+
 class Shape extends GameObject
-	fillStyle: (style) ->
+	fillStyle: chain (style) ->
 		@fillStyle = style
-		@
-	strokeStyle: (style) ->
+	strokeStyle: chain (style) ->
 		@strokeStyle = style
-		@
 	preDraw: (ctx) ->
-		super.call @, ctx
 		if @fillStyle?
 			ctx.fillStyle @fillStyle
 		if @strokeStyle?
 			ctx.strokeStyle @strokeStyle
 
-class Circle extends Shape
-	radius: (deg) ->
+window.Circle = class Circle extends Shape
+	radius: chain (deg) ->
 		@rad = deg
-		@
 	draw: (ctx) ->
 		ctx.beginPath()
 		ctx.arc 0,0,@rad,0,2*Math.PI
 		ctx.fill()
 		ctx.stroke()
 		ctx.closePath()
-
-new Circle().position(10,10).radius(10)
 
 Bullets =
 	basic:
@@ -134,6 +151,7 @@ Bullets =
 
 class Bullet extends Sprite
 	constructor: (@kind, @target) ->
+		super @
 		@ready = false
 		$.extend @, Bullets[@kind]
 	aim: (@target) ->
@@ -162,10 +180,12 @@ Towers =
 
 class Tower extends Sprite
 	constructor: (@kind) ->
+		super @
 		$.extend @, Towers[@kind]
 
-class Player
+class Player extends GameObject
 	constructor: (@name) ->
+		super @
 		@money = new LinearValue 0
 		@money.value = Rules.startingGold
 		@towers = []
@@ -193,3 +213,4 @@ class Player
 		if @inHand
 			@adjustBalance +@inHand.cost
 		@inHand = null
+
