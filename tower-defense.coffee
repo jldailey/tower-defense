@@ -12,8 +12,9 @@
 # Each map is a list of indices into data arrays.
 # A ground tile needs to know: an Image, 
 
-deg2rad = (deg) ->
-	deg*Math.PI/180
+deg2rad = (deg) -> deg*Math.PI/180
+expose  = (f) -> window[f.name] = f
+chain   = (f) -> -> f.apply @, arguments; @
 
 Rules =
 	startingGold: 500
@@ -38,13 +39,12 @@ class LinearValue extends TimeValue
 	constructor: (@rate) ->
 		super (x, dt) => x + (dt*@rate)
 
-chain = (f) -> (args...) -> (f.apply @, args); @
-window.GameObject = class GameObject extends $.EventEmitter
-	@index = {}
+expose class GameObject extends $.EventEmitter
 	constructor: ->
 		super @
 		GameObject.index[@guid or= $.random.string 16] = @
 		@valid = true
+	@index = {}
 	destroy: ->
 		@valid = false
 		@emit 'destroy', @ # signal the game to forget about us
@@ -59,7 +59,8 @@ window.GameObject = class GameObject extends $.EventEmitter
 
 	rotation: chain (deg) -> @rot = deg
 	position: (x, y) -> @proxy @pos = $(x,y), 'x', 'y'
-	size: (w, h) -> @proxy @size = $(w, h), "w", "h"
+	size: (w, h) -> @proxy @size = $(w, h), 'w', 'h'
+
 	proxy: chain (array, names...) ->
 		for i in [0...names.length] by 1 then do (i) ->
 			name = names[i]
@@ -67,7 +68,7 @@ window.GameObject = class GameObject extends $.EventEmitter
 				get: -> arr[i]
 				set: (v) -> arr[i] = v
 
-window.Game = class Game
+expose class Game
 	constructor: (opts, objects...) ->
 		opts = $.extend {
 			canvas: "#canvas"
@@ -105,112 +106,12 @@ window.Game = class Game
 			stop: ->
 				cancelInterval interval
 
-window.Sprite = class Sprite extends GameObject
-	image: chain (url, onload=->) ->
-		@img = new Image url
-		@img.on 'load', onload
-	draw: (ctx) ->
-		ctx.drawImage @img, 0, 0, @w, @h
-
-window.Tracer = class Tracer extends GameObject
+expose class Tracer extends GameObject
 	tick: (dt) ->
-		console.log "Tick (dt:#{dt} fps:(#{1000/dt})"
-window.Label = class Label extends GameObject
+		$.log "Tick (dt:#{dt} fps:#{1000/dt})"
+
+expose class Label extends GameObject
 	text: chain (text) ->
-		@label = text
+		@txt = text
 	draw: (ctx) ->
-		ctx.fillText @label, @x, @y
-
-class Shape extends GameObject
-	fillStyle: chain (style) ->
-		@fillStyle = style
-	strokeStyle: chain (style) ->
-		@strokeStyle = style
-	preDraw: (ctx) ->
-		if @fillStyle?
-			ctx.fillStyle @fillStyle
-		if @strokeStyle?
-			ctx.strokeStyle @strokeStyle
-
-window.Circle = class Circle extends Shape
-	radius: chain (deg) ->
-		@rad = deg
-	draw: (ctx) ->
-		ctx.beginPath()
-		ctx.arc 0,0,@rad,0,2*Math.PI
-		ctx.fill()
-		ctx.stroke()
-		ctx.closePath()
-
-Bullets =
-	basic:
-		name: "Basic Bullet"
-		damage: 10
-		speed: 5
-		shape: new Circle().radius(3).fillStyle("grey")
-
-class Bullet extends Sprite
-	constructor: (@kind, @target) ->
-		super @
-		@ready = false
-		$.extend @, Bullets[@kind]
-	aim: (@target) ->
-		@
-	release: ->
-		@ready = true
-	tick: (dt) ->
-		if @ready
-			d = target.pos.minus @pos # vector from us to the target
-			dm = d.magnitude()
-			@pos = @pos.plus d.normalize().scale @speed # move
-			if dm - @speed <= 0
-				@target.emit 'impact', @
-
-new Bullet('basic')
-	.position(5, 5)
-	.aim( pos: $(10,10) )
-	.release()
-
-Towers =
-	basic:
-		name: "Basic Tower"
-		cost: 100
-		dps: 1.0
-		range: 10
-
-class Tower extends Sprite
-	constructor: (@kind) ->
-		super @
-		$.extend @, Towers[@kind]
-
-class Player extends GameObject
-	constructor: (@name) ->
-		super @
-		@money = new LinearValue 0
-		@money.value = Rules.startingGold
-		@towers = []
-		@inHand = null
-	toString: -> "#{@name} (#{@money.value}gp)"
-	tick: (dt) ->
-		tower.tick(ctx) for tower in towers
-	draw: (ctx) ->
-	adjustIncome: (amt) ->
-		@money.value = @money.value # reset the base time so the rate change is not retroactive
-		@money.rate += amt / 1000
-	adjustBalance: (amt) ->
-		@money.value -= amt
-	purchaseTower: (towerCode) ->
-		if towerCode of Towers
-			tower = Towers[towerCode]
-			if @money.value > tower.cost
-				@inHand = tower
-		null
-	placeInHand: (map, pos...) ->
-		if @inHand
-			map.placeItem @inHand, pos...
-		null
-	cancelPurchase: ->
-		if @inHand
-			@adjustBalance +@inHand.cost
-		@inHand = null
-
+		ctx.fillText @txt, @x, @y
