@@ -3,10 +3,7 @@
 	<head>
 		<title>Tower Defense</title>
 		<script type="text/javascript" src="js/bling.js"></script>
-		<script type="text/javascript" src="js/tower-defense.js"></script>
-		<script type="text/coffeescript">
-			window.td = new Game canvas: "#gameCanvas"
-		</script>
+		<script type="text/javascript" src="js/game.js"></script>
 		<style type="text/css">
 			#canvas {
 				width: 100%;
@@ -15,7 +12,10 @@
 		</style>
 	</head>
 	<body>
-		<canvas id="gameCanvas" width="100%" height="100%"></canvas>
+		<canvas id="gameCanvas" width="400" height="400"></canvas>
+		<button class="start-game">Start</button>
+		<button class="stop-game">Stop</button>
+		<button class="tick-game">Tick</button>
 		<script type="text/javascript" src="js/coffee-script.js"></script>
 	</body>
 </html>
