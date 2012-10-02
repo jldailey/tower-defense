@@ -1,21 +1,31 @@
 COFFEE=node_modules/.bin/coffee
+BLING=node_modules/bling/dist/bling.js
+PREPROC=grep -v '^\# ' | perl -ne 's/^\s*[\#]/\#/p; print' | cpp
 
-all: js/tower-defense.js js/bling.js js/coffee-script.js
+SRC_FILES=$(shell ls *.coffee)
 
-js/tower-defense.js: tower-defense.coffee $(COFFEE)
-	@$(COFFEE) -o js -c tower-defense.coffee
+all: js/game.js js/bling.js js/coffee-script.js
 
-js/bling.js:
+js:
 	mkdir -p js
-	curl http://blingjs.com/js/bling.js > $@
 
-js/coffee-script.js:
-	mkdir -p js
+js/game.js: js $(SRC_FILES) $(COFFEE)
+	@cat game.coffee | $(PREPROC) | $(COFFEE) -sc > $@
+
+js/bling.js: js $(BLING)
+	cp $(BLING) js/bling.js
+
+js/coffee-script.js: js $(COFFEE)
 	curl http://coffeescript.org/extras/coffee-script.js > $@
 
 $(COFFEE):
 	npm install coffee-script
-	sed -i 's/path.exists/fs.exists/' node_modules/coffee-script/lib/coffee-script/command.js
+	# PATCH: avoid a warning message from the coffee compiler
+	sed -i .bak 's/path.exists/fs.exists/' node_modules/coffee-script/lib/coffee-script/command.js
+	rm -f node_modules/coffee-script/lib/coffee-script/command.js.bak
+
+$(BLING):
+	npm install bling
 
 clean:
 	rm -rf js
