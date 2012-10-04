@@ -1,6 +1,6 @@
 COFFEE=node_modules/.bin/coffee
 BLING=node_modules/bling/dist/bling.js
-PREPROC=grep -v '^\# ' | perl -ne 's/^\s*[\#]/\#/p; print' | cpp
+PREPROC=grep -v '^\s*\# ' | perl -ne 's/^\s*[\#]/\#/p; print' | cpp
 
 SRC_FILES=$(shell ls *.coffee)
 
