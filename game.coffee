@@ -20,10 +20,18 @@ class GameObject extends $.EventEmitter
 		super @
 		GameObject.index[@guid or= $.random.string 16] = @
 		@valid = true
+		layer = 0
+		$.defineProperty @, 'layer',
+			get: -> layer
+			set: (v) ->
+				[old, layer] = [layer, v]
+				@emit 'layerChange', old, layer
+
 	@index = {}
 	destroy: ->
 		@valid = false
 		@emit 'destroy', @ # signal the game to forget about us
+	
 
 	tick: (dt) -> # should update your state based on a dt amount of time having passed
 	preDraw: (ctx) ->
@@ -62,7 +70,10 @@ class Game
 		objects = @objects = $()
 		$.extend @,
 			add: chain (item) ->
-				objects.push item
+				objects.splice (index = $.sortedIndex objects, item, 'layer'), 0, item
+				item.on 'layerChange', (oldLayer, newLayer) ->
+					objects.splice index, 1
+					objects.splice (index = $.sortedIndex objects, item, 'layer'), 0, item
 				item.on 'destroy', (x) ->
 					if (i = objects.indexOf x) > -1
 						objects.splice i, 1
