@@ -14,47 +14,52 @@
 
 #include "shims.coffee"
 #include "values.coffee"
+#include "modular.coffee"
 
-class GameObject extends $.EventEmitter
-	constructor: ->
-		super @
-		GameObject.index[@guid or= $.random.string 16] = @
-		@valid = true
-		layer = 0
-		$.defineProperty @, 'layer',
-			get: -> layer
-			set: (v) ->
-				[old, layer] = [layer, v]
-				@emit 'layerChange', old, layer
+class Volume
+	init: ->
+		proxy @, @size = $(0,0,0), 'w', 'h', 'd'
+		proxy @, @size, 'width', 'height', 'depth'
 
-	@index = {}
-	destroy: ->
-		@valid = false
-		@emit 'destroy', @ # signal the game to forget about us
-	
+class Position
+	init: -> proxy @, @pos = $(0,0,0), 'x', 'y', 'z'
+	position: (@x,@y,@z=0) -> @
+	preDraw: (ctx) -> ctx.translate @x, @y
 
-	tick: (dt) -> # should update your state based on a dt amount of time having passed
-	preDraw: (ctx) ->
-		ctx.save()
-		ctx.fillStyle = @style if @style?
-		ctx.strokeStyle = @style if @style?
-		ctx.translate @x, @y if @x?
-		ctx.rotate $.deg2rad @rot if @rot?
-	draw: (ctx) -> # (optional) draw yourself
-	postDraw: (ctx) ->
-		ctx.restore()
+class Velocity
+	init: -> proxy @, @vel = $(0,0,0), 'vx', 'vy', 'vz'
+	velocity: (@vx,@vy,@vz=0) -> @
+	tick: (dt) -> @pos.add @vel.scale dt
 
-	color: chain (style) -> @style = style
-	rotation: chain (deg) -> @rot = deg
-	position: (x, y) -> @proxy @pos = $(x,y), 'x', 'y'
-	size: (w, h) -> @proxy @size = $(w, h), "w", "h"
+class Rotation
+	init: -> @rot = 0
+	rotation: (deg) ->
+		@rot = $.deg2rad deg
+		@
+	preDraw: (ctx) -> ctx.rotate @rot
 
-	proxy: chain (array, names...) ->
-		for i in [0...names.length] by 1 then do (i) =>
-			name = names[i]
-			$.defineProperty @, name,
-				get: -> array[i]
-				set: (v) -> array[i] = v
+class Filling
+	init: -> @fillStyle = "black"
+	fill: (@fillStyle) -> @
+	preDraw: (ctx) -> ctx.fillStyle = @fillStyle
+	draw: (ctx) -> ctx.fill()
+
+class Stroking
+	init: -> @strokeStyle = "black"
+	stroke: (@strokeStyle) -> @
+	preDraw: (ctx) -> ctx.strokeStyle = @strokeStyle
+	draw: (ctx) -> ctx.stroke()
+
+class Visible extends Modular
+	tick: (dt) ->
+	draw: (ctx) ->
+	preDraw: (ctx) -> ctx.save()
+	postDraw: (ctx) -> ctx.restore()
+	@has Position
+	@has Volume
+	@has Rotation
+	@has Filling
+	@has Stroking
 
 class Game
 	constructor: (opts, objects...) ->
@@ -94,28 +99,13 @@ class Game
 			stop: ->
 				cancelInterval interval
 
-#include "sprite.coffee"
-#include "tiles.coffee"
-#include "towers.coffee"
-#include "shapes.coffee"
-#include "bullets.coffee"
-#include "player.coffee"
-#include "label.coffee"
-
-class Tracer extends Label
-	constructor: ->
-		super @
-		fps = new SmoothValue 100
-		$.extend @,
-			tick: (dt) ->
-				fps.value = 1000/dt
-				@label = "fps:#{(fps.value).toFixed 0}"
-
 $(document).ready ->
-	window.Tracer = Tracer
+	class FPSTracer extends Label
+		init: -> @label = "FPS: 0"
+		tick: (dt) ->
+		@has Position
 	window.game = new Game canvas: "#gameCanvas", w: 320, h: 240
 	game.add new Tracer().position(10,20).color("red")
-	game.add new Sprite().image("img/grass.jpg").position(50,50).size(100,100).rotation(45)
 	$(".start-game").click -> game.start()
 	$(".stop-game").click -> game.stop()
 	$(".tick-game").click -> game.tick(10)
