@@ -1,5 +1,4 @@
 
-chain = (f) -> -> f.apply @, arguments; @
 proxy = (t, array, names...) ->
 	for i in [0...names.length] by 1 then do (i) =>
 		name = names[i]

@@ -9,7 +9,10 @@ all: js/game.js js/bling.js js/coffee-script.js
 js:
 	mkdir -p js
 
-js/game.js: js $(SRC_FILES) $(COFFEE)
+peek:
+	cat game.coffee | $(PREPROC) | less
+
+js/game.js: js $(SRC_FILES) $(COFFEE) Makefile
 	@cat game.coffee | $(PREPROC) | $(COFFEE) -sc > $@
 
 js/bling.js: js $(BLING)

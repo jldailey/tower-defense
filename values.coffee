@@ -16,9 +16,12 @@ class LinearValue extends TimeValue
 class SmoothValue
 	constructor: (smoothOver=10) ->
 		data = $()
+		sum = 0
 		$.defineProperty @, 'value',
-			get: -> data.mean()
+			get: ->
+				sum/data.length
 			set: (v) ->
+				if not isFinite(v) then return
 				if data.length >= smoothOver
-					data.shift()
-				data.push v
+					sum -= data.shift()
+				sum += data.push(v).last()
