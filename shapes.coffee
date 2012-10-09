@@ -7,8 +7,7 @@ class Shape
 	preDraw: (ctx) -> ctx.save()
 	postDraw: (ctx) -> ctx.restore()
 	@has Position
-	@has Filling
-	@has Stroking
+	@has Color
 	@has Layer
 	@is Destroyable
 
