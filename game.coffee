@@ -274,9 +274,10 @@ $(document).ready ->
 	class Tracer extends Modular
 		init: ->
 			@fps = new SmoothValue 30
+		message: (@msg) -> @
 		tick: (dt) ->
 			@fps.value = 1000/Math.max 1, dt
-			@label = "FPS: #{@fps.value.toFixed 0} DT: #{dt}"
+			@label = "FPS: #{@fps.value.toFixed 0} DT: #{dt}" + (if @msg then " Message: #{@msg}" else "")
 		@has Label
 	
 	class Ball extends Circle
@@ -358,9 +359,3 @@ $(document).ready ->
 	game.tick(16.66)
 
 	$("#gameCanvas").click -> game.toggle()
-	->
-		$("body").append("<select id='texture'></select>")
-		for texture in window.Textures
-			$("#texture").append "<option>#{texture}</option>"
-		$("#texture").bind 'change', ->
-			snow.image "img/" + $(this).val().first()
