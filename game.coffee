@@ -156,6 +156,59 @@ class Waypoints
 		if @waypoints.length is 0
 			VEC_SCALE_INPLACE(@vel, 0)
 
+class Quality
+	init: ->
+		@quality = 1.0
+		@decayPerMs = 0
+	decay: (@decayPerMs) -> @
+	tick: (dt) -> @quality -= @decayPerMs * dt
+
+class window.Road extends Modular
+	draw: (ctx) ->
+		dashLen = (@h/6)+1
+		shoulder = Math.floor(@h/18)
+		mid = (@h/2)
+		lineWidth = @h/25
+		stopLineOffset = 12
+		crosswalkOffsetA = 3
+		crosswalkOffsetB = 6
+		white = "rgba(255,255,255,#{@quality})"
+		ctx.translate 0,-mid
+		ctx.fillStyle = "#333"
+		ctx.fillRect 0,0,@w,@h
+		# the first stop line
+		ctx.drawLine shoulder*stopLineOffset,shoulder,shoulder*stopLineOffset,mid*1.02, lineWidth*4, white
+		# the first crosswalk
+		ctx.drawLine shoulder*crosswalkOffsetA,shoulder,shoulder*crosswalkOffsetA,@h-shoulder, lineWidth, white
+		ctx.drawLine shoulder*crosswalkOffsetB,shoulder,shoulder*crosswalkOffsetB,@h-shoulder, lineWidth, white
+		# the first white shoulder line
+		ctx.drawLine shoulder*crosswalkOffsetB,shoulder,@w-shoulder*crosswalkOffsetB,shoulder, lineWidth,white
+		# the yellow dashed line down the middle
+		ctx.drawLine shoulder*stopLineOffset,mid,@w - shoulder*stopLineOffset,mid, lineWidth,"yellow",[dashLen, dashLen*.8]
+		# the second white shoulder line
+		ctx.drawLine shoulder*crosswalkOffsetB,@h - shoulder, @w-shoulder*crosswalkOffsetB, @h - shoulder, lineWidth,white
+		# the second stop line
+		ctx.drawLine @w-shoulder*stopLineOffset,mid*0.98,@w-shoulder*stopLineOffset,@h-shoulder, lineWidth*4, white
+		# the second crosswalk
+		ctx.drawLine @w-shoulder*crosswalkOffsetA,shoulder,@w-shoulder*crosswalkOffsetA,@h-shoulder, lineWidth, white
+		ctx.drawLine @w-shoulder*crosswalkOffsetB,shoulder,@w-shoulder*crosswalkOffsetB,@h-shoulder, lineWidth, white
+	@is Drawable
+	@has Quality
+
+class Intersection extends Modular
+	draw: (ctx) ->
+		ctx.translate -@w,-@h/2
+		ctx.fillStyle = "#333"
+		ctx.fillRect 0,0,@w,@h
+		shoulder = Math.ceil(@h/18)
+		lineWidth = @h/25
+		# ctx.drawLine shoulder,shoulder,shoulder,@h - shoulder, lineWidth, "white"
+		# ctx.drawLine shoulder,shoulder,@w - shoulder, shoulder, lineWidth, "white"
+		# ctx.drawLine @w - shoulder,shoulder,@w - shoulder, @h - shoulder, lineWidth, "white"
+		# ctx.drawLine shoulder,@h - shoulder,@w - shoulder, @h - shoulder, lineWidth, "white"
+	@is Drawable
+	@has Quality
+
 class Game
 	constructor: (opts, objects...) ->
 		opts = $.extend {
