@@ -1,6 +1,6 @@
 
 proxy = (t, array, names...) ->
-	for i in [0...names.length] by 1 then do (i) =>
+	for i in [0...names.length] by 1 then do (i) ->
 		name = names[i]
 		$.defineProperty t, name,
 			get: -> array[i]
