@@ -137,6 +137,7 @@ class Speed
 class Waypoints
 	init: ->
 		@waypoints = $()
+		@threshold = 1
 		$.defineProperty @, 'waypoint',
 			get: => @waypoints.first()
 	addPlan: (points...) ->
@@ -151,7 +152,7 @@ class Waypoints
 		v = VEC_SUBV(wp, @pos)
 		m = VEC_MAG(v)
 		VEC_REPLACE(@vel, v)
-		if m < 4 then @waypoints.shift()
+		if m < @threshold then @waypoints.shift()
 		if @waypoints.length is 0
 			VEC_SCALE_INPLACE(@vel, 0)
 
