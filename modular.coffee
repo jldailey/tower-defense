@@ -1,7 +1,12 @@
 
 Function::has = Function::is = (cls) ->
+	@mixins or= []
+	if (i = @mixins.indexOf cls) > -1
+		@mixins.splice i, 1
+	@mixins.push cls
 	proto = @::
 	for k,v of cls::
+		continue if k in [ 'constructor' ]
 		if $.is 'function', v then do (k,v) =>
 			orig = proto[k]
 			proto[k] = ->
