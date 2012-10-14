@@ -71,6 +71,34 @@ class Destroyable extends Modular
 	init: -> EMIT_ON_CHANGE(destroyed, false)
 	destroy: -> @destroyed = true
 
+class Highlight extends Modular
+	init: -> @highlightTime = 0
+	tick: (dt) -> @highlightTime = Math.max(0, @highlightTime - dt)
+	highlight: (@highlightTime) -> @
+	drawHighlight: (ctx) ->
+		ctx.save()
+		ctx.beginPath()
+		ctx.strokeStyle = "red"
+		ctx.lineWidth = 2
+		ctx.moveTo 0,0
+		ctx.lineTo @w,0
+		ctx.lineTo @w,@h
+		ctx.lineTo 0,@h
+		ctx.lineTo 0,0
+		ctx.stroke()
+		ctx.closePath()
+		ctx.restore()
+	draw: (ctx) ->
+		if @highlightTime > 0
+			@drawHighlight(ctx)
+
+class window.Indexed
+	index = {}
+	init: ->
+		index[@guid = $.random.string 16] = @
+		@on 'destroy', -> delete index[@guid]
+	@find: (guid) -> index[guid]
+
 class Drawable extends Modular
 	tick: (dt) ->
 	draw: (ctx) ->
@@ -80,6 +108,8 @@ class Drawable extends Modular
 	@has Rotation
 	@has Color
 	@has Layer
+	@has Highlight
+	@is Indexed
 	@is Destroyable
 
 class window.Label extends Modular
