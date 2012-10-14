@@ -165,6 +165,16 @@ class Game
 			fps: 60
 		}, opts
 		ctx = @ctx = (@canvas = $ opts.canvas).select('getContext').call('2d').first()
+		ctx.drawLine = (a,b,c,d, width=1, style="1px solid black", dashing=[0]) ->
+			@beginPath()
+			@setLineDash dashing
+			@moveTo a,b
+			@lineWidth = width
+			@strokeStyle = style
+			@lineTo c,d
+			@stroke()
+			@closePath()
+
 		@canvas.attr('width', $.px opts.w).attr('height', $.px opts.h)
 		interval = null
 		objects = @objects = $()
