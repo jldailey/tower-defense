@@ -4,12 +4,15 @@ class Path
 	postDraw: (ctx) -> ctx.closePath()
 
 class Shape
+	tick: (dt) ->
 	preDraw: (ctx) -> ctx.save()
 	postDraw: (ctx) -> ctx.restore()
-	@has Position
+	@has Size
 	@has Color
 	@has Layer
+	@has Highlight
 	@is Destroyable
+	@is Indexed
 
 class window.Circle extends Modular
 	init: -> @rad = 10
@@ -21,7 +24,6 @@ class window.Circle extends Modular
 class window.Square extends Modular
 	draw: (ctx) -> ctx.fillRect 0,0,@w,@h
 	@is Shape
-	@has Volume
 	@has Rotation
 
 class window.Triangle extends Modular
@@ -31,6 +33,5 @@ class window.Triangle extends Modular
 		ctx.lineTo -@w/2,@h
 		ctx.lineTo 0,0
 	@is Shape
-	@has Volume
 	@has Path
 	@has Rotation
