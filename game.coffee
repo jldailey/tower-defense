@@ -10,14 +10,11 @@
 
 #define EMIT_ON_CHANGE(name,default) name = default; $.defineProperty(@,'name',{get:(->name),set:(v)->@emit 'name', name = v})
 
-class Volume
+class Size
 	init: ->
+		proxy @, @pos = $(0,0), 'x', 'y'
 		proxy @, @vol = $(0,0), 'w', 'h'
-		proxy @, @vol, 'width', 'height'
 	size: (@w,@h=@w) -> @
-
-class Position
-	init: -> proxy @, @pos = $(0,0), 'x', 'y'
 	position: (@x,@y) -> @
 	preDraw: (ctx) ->
 		if @x isnt 0 or @y isnt 0
@@ -79,8 +76,7 @@ class Drawable extends Modular
 	draw: (ctx) ->
 	preDraw: (ctx) -> ctx.save()
 	postDraw: (ctx) -> ctx.restore()
-	@has Position
-	@has Volume
+	@has Size
 	@has Rotation
 	@has Color
 	@has Layer
