@@ -29,6 +29,7 @@ class Size
 #define VEC_SUBV(v,w) [v[0]-w[0],v[1]-w[1]]
 #define VEC_MAG(v) Math.sqrt((v[0]*v[0]) + (v[1]*v[1]))
 #define VEC_REPLACE(v,w) (v[0]=w[0];v[1]=w[1])
+#define VEC_ROTATION(v) $.rad2deg(Math.acos(v[0] / VEC_MAG(v)))
 
 class Velocity
 	init: -> proxy @, @vel = $(0,0), 'vx', 'vy'
@@ -297,27 +298,61 @@ $(document).ready ->
 		tick: (dt) -> @frame++
 
 	window.game = new Game canvas: "#gameCanvas", w: 600, h: 400
-
-	game.add new Tracer().position(10,10).layerUp()
 	game.add snow = new TileLayer().image("img/ground-snow1-0.jpg").layerDown().tileSize(100)
-	game.add turret = new Turret().position(70,40).size(30).fill('black').stroke('red')
+
+	points = [
+		[40,0],
+		[40,100],
+		[300,100],
+		[300,200],
+		[200,200],
+		[200,300],
+		[370,300],
+		[370,0]
+	]
+	roadWidth = 30
+	for i in [0...points.length-1] by 1
+		[a,b] = points[i]
+		[c,d] = points[i+1]
+		game.add new Circle().position(a,b).fill("blue").radius(2)
+		v = [c-a,d-b]
+		r = VEC_ROTATION(v)
+		w = VEC_MAG(v)
+		halfw = roadWidth / 2
+		if v[1] < 0
+			r *= -1
+			b -= halfw
+		if v[1] > 0
+			b += halfw
+			w -= halfw
+		if v[0] > 0
+			a += halfw
+			w -= halfw
+		if v[0] < 0
+			a -= halfw
+			w -= halfw
+		w -= halfw
+		d = 0.000001 # decay
+		game.add new Road().position(a,b).size(w,roadWidth).rotation(r).decay(d)
+		if i < points.length - 1
+			game.add new Intersection().position(a,b).size(roadWidth).rotation(r).decay(d)
+	game.add new Road().position(270,300).size(1000,roadWidth).rotation(270)
+
+	spawner = ->
+		for i in [0...10] by 1
+			profile = $.random.real(0,1)
+			game.add b = new Ball()
+				.fill(colors[Math.floor(profile * colors.length)])
+				.radius( 4 + profile*8 )
+				.speed( .02 + (1-profile)*.05 )
+				.position(40,0)
+			for point in points
+				b.addWaypoint(point...)
+
+	game.add window.tracer = new Tracer().position(10,10).layerUp()
 	colors = ["red", "orange", "yellow", "green", "lightblue", "blue"]
 	for j in [0...30] by 1
-		$.delay j*5000, ->
-			for i in [0...10] by 1
-				profile = $.random.real(0,1)
-				game.add new Ball()
-					.fill(colors[Math.floor(profile * colors.length)])
-					.radius( 5 + profile*15 )
-					.speed( .02 + (1-profile)*.05 )
-					.position(40,0)
-					.addWaypoint(40,100)
-					.addWaypoint(300,100)
-					.addWaypoint(300,200)
-					.addWaypoint(200,200)
-					.addWaypoint(200,300)
-					.addWaypoint(370,300)
-					.addWaypoint(370,0)
+		$.delay j*5000, spawner
 
 
 	game.tick(16.66)
