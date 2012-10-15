@@ -161,7 +161,7 @@ class Quality
 		@quality = 1.0
 		@decayPerMs = 0
 	decay: (@decayPerMs) -> @
-	tick: (dt) -> @quality -= @decayPerMs * dt
+	tick: (dt) -> @quality = Math.max(0, @quality - @decayPerMs * dt )
 
 class window.Road extends Modular
 	draw: (ctx) ->
@@ -224,7 +224,7 @@ class window.LightCone extends Modular
 
 class window.StreetLight extends Modular
 	tick: (dt) ->
-		@quality = $.random.coin(.999)
+		# @quality = $.random.coin(.999)
 	draw: (ctx) ->
 		# draw pole
 		x1=@w/3
@@ -244,7 +244,7 @@ class window.StreetLight extends Modular
 		ctx.moveTo x1+1,0
 		ctx.lineTo x2-2,y1+2
 		ctx.lineTo x2-2,4
-		ctx.strokeStyle = LIGHT_COLOR(.6)
+		ctx.strokeStyle = LIGHT_COLOR(@quality*.6)
 		ctx.stroke()
 		ctx.closePath()
 
@@ -268,6 +268,7 @@ class window.Sidewalk extends Modular
 class window.Grass extends Modular
 	draw: (ctx) ->
 		unless @imgData
+			$.delay 1000, => delete @imgData
 			canvas = document.createElement('canvas')
 			canvas.setAttribute('width', @w)
 			canvas.setAttribute('height', @h)
@@ -275,21 +276,24 @@ class window.Grass extends Modular
 			ctx2.fillStyle = "lightgrey"
 			ctx2.fillRect 0,0,@w,@h
 			ctx2.beginPath()
-			ctx2.strokeStyle = "rgba(10,100,10,.8)"
+			ctx2.strokeStyle = "rgba(#{Math.floor(10+(1-@quality)*90)},100,#{Math.floor 10+(1-@quality)*60},.8)"
 			ctx2.lineWidth = 2
 			x = 0
+			q = @quality
+			qs = 1 # Math.sin(q*2*Math.PI)
 			while x < @w
 				y = 0
 				while y < @h
 					ctx2.moveTo x,y
 					ctx2.lineTo x+5,y-5
-					y += $.random.integer 2,4
-				x += $.random.integer 2,4
+					y += $.random.integer 2,4/qs
+				x += $.random.integer 2,4/qs
 			ctx2.stroke()
 			ctx2.closePath()
 			@imgData = ctx2.getImageData 0,0,@w,@h
 		ctx.putImageData @imgData, @x, @y
 	@is Drawable
+	@has Quality
 
 class Game
 	constructor: (opts, objects...) ->
@@ -462,13 +466,13 @@ $(document).ready ->
 	game.add new Sidewalk().position(25,0).size(125,10).rotation(90)
 	game.add new Sidewalk().position(185,175).size(150,10).rotation(90)
 	game.add new Sidewalk().position(65,0).size(80,10).rotation(90)
-	game.add new Grass().position(65,0).size(280,75)
-	game.add new Grass().position(0,0).size(15,135)
-	game.add new Grass().position(0,125).size(275,50)
-	game.add new Grass().position(385,0).size(25,370)
-	game.add new Grass().position(172,325).size(215,45)
-	game.add new Grass().position(0,170).size(175,200)
-	game.add new Grass().position(325,70).size(20,205)
+	game.add new Grass().position(65,0).size(280,75).decay(.0001)
+	game.add new Grass().position(0,0).size(15,135).decay(.0001)
+	game.add new Grass().position(0,125).size(275,50).decay(.0001)
+	game.add new Grass().position(385,0).size(25,370).decay(.0001)
+	game.add new Grass().position(172,325).size(215,45).decay(.0001)
+	game.add new Grass().position(0,170).size(175,200).decay(.0001)
+	game.add window.grass = new Grass().position(325,70).size(20,205).decay(.0001)
 
 	game.tick(16.66)
 
