@@ -107,13 +107,13 @@ class Drawable extends Modular
 	draw: (ctx) ->
 	preDraw: (ctx) -> ctx.save()
 	postDraw: (ctx) -> ctx.restore()
-	@has Size
-	@has Rotation
-	@has Color
-	@has Layer
-	@has Highlight
-	@is Indexed
-	@is Destroyable
+	@mixin Size
+	@mixin Rotation
+	@mixin Color
+	@mixin Layer
+	@mixin Highlight
+	@mixin Indexed
+	@mixin Destroyable
 
 class window.Label extends Modular
 	constructor: (@label = "Hello") ->
@@ -123,7 +123,7 @@ class window.Label extends Modular
 	text: (@label) -> @
 	textOffset: (@labelX, @labelY=0) ->
 	draw: (ctx) -> (ctx.fillText @label, @labelX, @labelY) if @label?.length > 0
-	@is Drawable
+	@mixin Drawable
 
 #include "shapes.coffee"
 #include "sprite.coffee"
@@ -197,8 +197,8 @@ class window.Road extends Modular
 		# the second crosswalk
 		ctx.drawLine @w-shoulder*crosswalkOffsetA,shoulder,@w-shoulder*crosswalkOffsetA,@h-shoulder, lineWidth, white
 		ctx.drawLine @w-shoulder*crosswalkOffsetB,shoulder,@w-shoulder*crosswalkOffsetB,@h-shoulder, lineWidth, white
-	@is Drawable
-	@has Quality
+	@mixin Drawable
+	@mixin Quality
 
 class Intersection extends Modular
 	draw: (ctx) ->
@@ -211,8 +211,8 @@ class Intersection extends Modular
 		# ctx.drawLine shoulder,shoulder,@w - shoulder, shoulder, lineWidth, "white"
 		# ctx.drawLine @w - shoulder,shoulder,@w - shoulder, @h - shoulder, lineWidth, "white"
 		# ctx.drawLine shoulder,@h - shoulder,@w - shoulder, @h - shoulder, lineWidth, "white"
-	@is Drawable
-	@has Quality
+	@mixin Drawable
+	@mixin Quality
 
 class Game
 	constructor: (opts, objects...) ->
@@ -232,7 +232,6 @@ class Game
 				@stroke()
 				@closePath()
 
-		@canvas.attr('width', $.px opts.w).attr('height', $.px opts.h)
 		interval = null
 		$.defineProperty @, 'started',
 			get: -> interval isnt null
@@ -290,8 +289,8 @@ class window.TimedScript extends Modular
 		@elapsed += dt
 		while @tasks.length > 0 and @tasks[0].t < @elapsed
 			@tasks.shift().f(game)
-	@has Layer
-	@is Destroyable
+	@mixin Layer
+	@mixin Destroyable
 
 class Tracer extends Modular
 	init: ->
@@ -300,11 +299,11 @@ class Tracer extends Modular
 	tick: (dt) ->
 		@fps.value = 1000/Math.max 1, dt
 		@label = "FPS: #{@fps.value.toFixed 0} DT: #{dt}" + (if @msg then " Message: #{@msg}" else "")
-	@has Label
+	@mixin Label
 
 class Ball extends Circle
-	@has Velocity
-	@has Speed
+	@mixin Velocity
+	@mixin Speed
 
 class Frames
 	init: -> @frame = 0

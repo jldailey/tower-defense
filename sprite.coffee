@@ -7,11 +7,10 @@ class window.Sprite extends Modular
 		@
 	draw: (ctx) ->
 		ctx.drawImage @img, 0, 0, @w, @h
-	@is Drawable
+	@mixin Drawable
 
 class window.TileLayer extends Sprite
 	init: -> @tileSize 100
-	version: -> 2
 	tileSize: (@tileWidth, @tileHeight=@tileWidth) -> @
 	drawTile: (ctx, x, y) ->
 		x *= @tileWidth
@@ -22,7 +21,7 @@ class window.TileLayer extends Sprite
 		for x in [0...width / @tileWidth] by 1
 			for y in [0...height / @tileHeight] by 1
 				@drawTile ctx, x, y
-	@is Drawable
+	@mixin Drawable
 
 window.Textures = [
 	"ground-snow1-0.jpg",

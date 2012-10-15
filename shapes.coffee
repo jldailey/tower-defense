@@ -7,24 +7,24 @@ class Shape
 	tick: (dt) ->
 	preDraw: (ctx) -> ctx.save()
 	postDraw: (ctx) -> ctx.restore()
-	@has Size
-	@has Color
-	@has Layer
-	@has Highlight
-	@is Destroyable
-	@is Indexed
+	@mixin Size
+	@mixin Color
+	@mixin Layer
+	@mixin Highlight
+	@mixin Destroyable
+	@mixin Indexed
 
 class window.Circle extends Modular
 	init: -> @rad = 10
 	radius: (@rad) -> @
 	draw: (ctx) -> ctx.arc 0,0,@rad,0,2*Math.PI
-	@is Shape
-	@has Path
+	@mixin Shape
+	@mixin Path
 
 class window.Square extends Modular
 	draw: (ctx) -> ctx.fillRect 0,0,@w,@h
-	@is Shape
-	@has Rotation
+	@mixin Shape
+	@mixin Rotation
 
 class window.Triangle extends Modular
 	draw: (ctx) ->
@@ -32,6 +32,6 @@ class window.Triangle extends Modular
 		ctx.lineTo @w/2,@h
 		ctx.lineTo -@w/2,@h
 		ctx.lineTo 0,0
-	@is Shape
-	@has Path
-	@has Rotation
+	@mixin Shape
+	@mixin Path
+	@mixin Rotation
