@@ -1,10 +1,19 @@
 COFFEE=node_modules/.bin/coffee
 BLING=node_modules/bling/dist/bling.js
+MOCHA=node_modules/.bin/mocha
+MOCHA_OPTS=--compilers coffee:coffee-script --globals document,window,Bling,$$,_ -R dot
+SRC_FILES=$(shell ls *.coffee)
+TEST_FILES=$(shell ls test/*.coffee)
 PREPROC=grep -v '^\s*\# ' | perl -ne 's/^\s*[\#]/\#/p; print' | cpp
 
-SRC_FILES=$(shell ls *.coffee)
-
 all: js/game.js js/bling.js js/coffee-script.js
+
+test: all test/pass
+	@echo "All tests are passing."
+
+test/pass: $(MOCHA) $(SRC_FILES) $(TEST_FILES)
+	$(MOCHA) $(MOCHA_OPTS) $(TEST_FILES) && touch test/pass
+
 
 js:
 	mkdir -p js
@@ -29,6 +38,9 @@ $(COFFEE):
 
 $(BLING):
 	npm install bling
+
+$(MOCHA):
+	npm install mocha
 
 clean:
 	rm -rf js

@@ -21,7 +21,6 @@ class window.TileLayer extends Sprite
 		for x in [0...width / @tileWidth] by 1
 			for y in [0...height / @tileHeight] by 1
 				@drawTile ctx, x, y
-	@mixin Drawable
 
 window.Textures = [
 	"ground-snow1-0.jpg",

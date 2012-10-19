@@ -10,65 +10,7 @@
 
 #define EMIT_ON_CHANGE(name,default) name = default; $.defineProperty(@,'name',{get:(->name),set:(v)->@emit 'name', name = v})
 
-class Size
-	init: ->
-		proxy @, @pos = $(0,0), 'x', 'y'
-		proxy @, @vol = $(0,0), 'w', 'h'
-	size: (@w,@h=@w) -> @
-	position: (@x,@y) -> @
-	preDraw: (ctx) ->
-		if @x isnt 0 or @y isnt 0
-			$.log "translating to #{@x} #{@y}"
-			ctx.translate @x, @y
-
-#define VEC_ADD(v,a) [v[0]+a,v[1]+a]
-#define VEC_ADD_INPLACE(v,a) (v[0]+=a;v[1]+=a)
-#define VEC_ADDV(v,w) [v[0]+w[0],v[1]+w[1]]
-#define VEC_ADDV_INPLACE(v,w) (v[0]+=w[0];v[1]+=w[1])
-#define VEC_SCALE(v,r) [v[0]*r, v[1]*r]
-#define VEC_SCALE_INPLACE(v, r) (v[0]*=r;v[1]*=r)
-#define VEC_SUBV(v,w) [v[0]-w[0],v[1]-w[1]]
-#define VEC_MAG(v) Math.sqrt((v[0]*v[0]) + (v[1]*v[1]))
-#define VEC_REPLACE(v,w) (v[0]=w[0];v[1]=w[1])
-#define VEC_ROTATION(v) $.rad2deg(Math.acos(v[0] / VEC_MAG(v)))
-
-class Velocity
-	init: -> proxy @, @vel = $(0,0), 'vx', 'vy'
-	velocity: (@vx,@vy) -> @
-	tick: (dt) ->
-		v = VEC_SCALE(@vel, dt)
-		VEC_ADDV_INPLACE(@pos, v)
-		$.log "pos: #{@pos} x: #{@x} y: #{@y}"
-
-class Acceleration
-	init: -> proxy @, @acc = $(0,0), 'ax', 'ay'
-	accel: (@ax,@ay) -> @
-	tick: (dt) ->
-		a = VEC_SCALE(@acc, dt)
-		VEC_ADDV_INPLACE(@vel, a)
-
-class Rotation
-	init: -> @rot = 0
-	rotation: (deg) ->
-		@rot = $.deg2rad deg
-		@
-	preDraw: (ctx) -> ctx.rotate @rot if @rot
-
-class Color
-	init: -> @fill null
-	fill: (@fillStyle) -> @
-	stroke: (@strokeStyle) -> @
-	preDraw: (ctx) ->
-		ctx.fillStyle = @fillStyle
-		ctx.strokeStyle = @strokeStyle
-	draw: (ctx) ->
-		ctx.fill() if @fillStyle
-		ctx.stroke() if @strokeStyle
-
-class Layer
-	init: -> EMIT_ON_CHANGE(layer, 0)
-	layerUp: (n=1) -> @layer += n; @
-	layerDown: (n=1) -> @layer -= n; @
+#include "phys.coffee"
 
 class Destroyable extends Modular
 	init: -> EMIT_ON_CHANGE(destroyed, false)
@@ -79,7 +21,7 @@ class Highlight extends Modular
 	tick: (dt) -> @highlightTime = Math.max(0, @highlightTime - dt)
 	highlight: (@highlightTime) -> @
 	drawHighlight: (ctx) ->
-		ctx.save()
+		$.log "drawing highlight"
 		ctx.beginPath()
 		ctx.strokeStyle = "red"
 		ctx.lineWidth = 2
@@ -90,7 +32,6 @@ class Highlight extends Modular
 		ctx.lineTo 0,0
 		ctx.stroke()
 		ctx.closePath()
-		ctx.restore()
 	draw: (ctx) ->
 		if @highlightTime > 0
 			@drawHighlight(ctx)
@@ -102,22 +43,47 @@ class window.Indexed
 		@on 'destroy', -> delete index[@guid]
 	@find: (guid) -> index[guid]
 
-class Drawable extends Modular
-	tick: (dt) ->
-	draw: (ctx) ->
-	preDraw: (ctx) -> ctx.save()
-	postDraw: (ctx) -> ctx.restore()
+class Managed extends Modular
 	@mixin Size
-	@mixin Rotation
-	@mixin Color
-	@mixin Layer
-	@mixin Highlight
 	@mixin Indexed
+	@mixin Highlight
 	@mixin Destroyable
 
+class Drawable extends Modular
+	@mixin Managed
+	@mixin Color
+	@mixin Scale
+	@mixin Rotation
+
+class Elapsed extends Modular
+	init: -> @elapsed = 0
+	tick: (dt) -> @elapsed += dt
+
+class Cached extends Modular
+	init: ->
+		@age = 0
+		@ageLimit = 1000
+	ttl: (@ageLimit) -> @
+	tick: (dt) ->
+		if (@age += dt) > @ageLimit
+			unless @ageLimit is -1
+				delete @cacheData
+	draw: (ctx, game) ->
+		unless @cacheData
+			unless @cacheCanvas
+				canvas = document.createElement('canvas')
+				canvas.setAttribute('width', @w)
+				canvas.setAttribute('height', @h)
+				@cacheCanvas = canvas
+			ctx2 = @cacheCanvas.getContext('2d')
+			ctx2.clearRect 0,0,@w,@h
+			@drawUncached(ctx2, game)
+			@cacheData = ctx2.getImageData 0,0,@w,@h
+			@age = 0
+		ctx.putImageData @cacheData, @x, @y
+
+
 class window.Label extends Modular
-	constructor: (@label = "Hello") ->
-		super @
 	init: ->
 		proxy @, @labelOffset = $(0,0), 'labelX', 'labelY'
 	text: (@label) -> @
@@ -127,15 +93,7 @@ class window.Label extends Modular
 
 #include "shapes.coffee"
 #include "sprite.coffee"
-
-class Speed
-	init: -> @speed 0
-	speed: (@spd) -> @
-	tick: (dt) ->
-		m = VEC_MAG(@vel)
-		if m isnt 0
-			m = @spd / m
-			VEC_SCALE_INPLACE(@vel, m)
+#include "art.coffee"
 
 class Waypoints
 	init: ->
@@ -161,58 +119,59 @@ class Waypoints
 		if @waypoints.length is 0
 			VEC_SCALE_INPLACE(@vel, 0)
 
-class Quality
+class window.TimedScript extends Modular
 	init: ->
-		@quality = 1.0
-		@decayPerMs = 0
-	decay: (@decayPerMs) -> @
-	tick: (dt) -> @quality -= @decayPerMs * dt
+		@tasks = []
+		@elapsed = 0
+	cue: (time, func) ->
+		task = { t: time, f: func }
+		@tasks.splice ($.sortedIndex @tasks, task, 't'), 0, task
+		@
+	tick: (dt, game) ->
+		@elapsed += dt
+		while @tasks.length > 0 and @tasks[0].t < @elapsed
+			@tasks.shift().f(game)
+	@mixin Destroyable
 
-class window.Road extends Modular
-	draw: (ctx) ->
-		dashLen = (@h/6)+1
-		shoulder = Math.floor(@h/18)
-		mid = (@h/2)
-		lineWidth = @h/25
-		stopLineOffset = 12
-		crosswalkOffsetA = 3
-		crosswalkOffsetB = 6
-		white = "rgba(255,255,255,#{@quality})"
-		ctx.translate 0,-mid
-		ctx.fillStyle = "#333"
-		ctx.fillRect 0,0,@w,@h
-		# the first stop line
-		ctx.drawLine shoulder*stopLineOffset,shoulder,shoulder*stopLineOffset,mid*1.02, lineWidth*4, white
-		# the first crosswalk
-		ctx.drawLine shoulder*crosswalkOffsetA,shoulder,shoulder*crosswalkOffsetA,@h-shoulder, lineWidth, white
-		ctx.drawLine shoulder*crosswalkOffsetB,shoulder,shoulder*crosswalkOffsetB,@h-shoulder, lineWidth, white
-		# the first white shoulder line
-		ctx.drawLine shoulder*crosswalkOffsetB,shoulder,@w-shoulder*crosswalkOffsetB,shoulder, lineWidth,white
-		# the yellow dashed line down the middle
-		ctx.drawLine shoulder*stopLineOffset,mid,@w - shoulder*stopLineOffset,mid, lineWidth,"yellow",[dashLen, dashLen*.8]
-		# the second white shoulder line
-		ctx.drawLine shoulder*crosswalkOffsetB,@h - shoulder, @w-shoulder*crosswalkOffsetB, @h - shoulder, lineWidth,white
-		# the second stop line
-		ctx.drawLine @w-shoulder*stopLineOffset,mid*0.98,@w-shoulder*stopLineOffset,@h-shoulder, lineWidth*4, white
-		# the second crosswalk
-		ctx.drawLine @w-shoulder*crosswalkOffsetA,shoulder,@w-shoulder*crosswalkOffsetA,@h-shoulder, lineWidth, white
-		ctx.drawLine @w-shoulder*crosswalkOffsetB,shoulder,@w-shoulder*crosswalkOffsetB,@h-shoulder, lineWidth, white
-	@mixin Drawable
-	@mixin Quality
+class Frames
+	init: ->
+		@frame = 0
+		@frames = []
+		@fps = 60
+	frames: (@frames...) -> @
+	tick: (dt) -> @frame = (@frame + @fps*dt/1000) % @frames.length
 
-class Intersection extends Modular
+class Tracer extends Modular
+	init: ->
+		@fps = new SmoothValue 30
+	message: (@msg) -> @
+	tick: (dt) ->
+		@fps.value = 1000/Math.max 1, dt
+		@label = "FPS: #{@fps.value.toFixed 0} DT: #{dt}" + (if @msg then " Message: #{@msg}" else "")
+	@mixin Label
+
+class Ball extends Modular
+	@mixin Velocity
+	@mixin Waypoints
+	@mixin Speed
+	@mixin Circle
+
+class window.ProgressBar extends Modular
+	init: ->
+		@update(0).background("white").border("black").color("red")
+	update: (@progress) -> @
+	background: (@progressBg) -> @
+	border: (@progressBorder) -> @
+	color: (@progressColor) -> @
 	draw: (ctx) ->
-		ctx.translate -@w,-@h/2
-		ctx.fillStyle = "#333"
+		ctx.fillStyle = @progressBg
 		ctx.fillRect 0,0,@w,@h
-		shoulder = Math.ceil(@h/18)
-		lineWidth = @h/25
-		# ctx.drawLine shoulder,shoulder,shoulder,@h - shoulder, lineWidth, "white"
-		# ctx.drawLine shoulder,shoulder,@w - shoulder, shoulder, lineWidth, "white"
-		# ctx.drawLine @w - shoulder,shoulder,@w - shoulder, @h - shoulder, lineWidth, "white"
-		# ctx.drawLine shoulder,@h - shoulder,@w - shoulder, @h - shoulder, lineWidth, "white"
-	@mixin Drawable
-	@mixin Quality
+		ctx.strokeStyle = @progressBorder
+		ctx.strokeRect 0,0,@w,@h
+		ctx.fillStyle = @progressColor
+		$.log "[#{@guid}] filling rect out to #{@w*@progress} #{@progress}"
+		ctx.fillRect 1,1,@w*@progress,@h-1
+	@mixin Managed
 
 class Game
 	constructor: (opts, objects...) ->
@@ -222,15 +181,21 @@ class Game
 		}, opts
 		@canvas = $.synth("canvas[width=#{@w}][height=#{@h}]").appendTo("body").first()
 		@context = ctx = $.extend @canvas.getContext('2d'),
-			drawLine: (a,b,c,d, width=1, style="1px solid black", dashing=[0]) ->
+			linePath: (points...) ->
+				return unless points.length >= 4
 				@beginPath()
-				@setLineDash dashing
+				[a,b] = points.splice 0,2
 				@moveTo a,b
-				@lineWidth = width
-				@strokeStyle = style
-				@lineTo c,d
-				@stroke()
+				while points.length > 1
+					[a,b] = points.splice 0,2
+					@lineTo a,b
 				@closePath()
+			circlePath: (x,y,r) ->
+				@beginPath()
+				@arc x,y,r,0,2*Math.PI
+				@closePath()
+		@context.translate 0.5, 0.5
+		@context.webkitImageSmoothingEnabled = false
 
 		interval = null
 		$.defineProperty @, 'started',
@@ -245,23 +210,30 @@ class Game
 						postDraw: ->
 						tick: ->
 					}, item
-					objects.splice (index = $.sortedIndex objects, item, 'layer'), 0, item
+					objects.splice (index = $.sortedIndex objects, item, 'z'), 0, item
 					item.on 'layer', (newLayer) ->
 						objects.splice index, 1
-						objects.splice (index = $.sortedIndex objects, item, 'layer'), 0, item
+						objects.splice (index = $.sortedIndex objects, item, 'z'), 0, item
+						objects.emit 'change'
 					item.on 'destroyed', (destroyed) ->
 						if destroyed and (i = objects.indexOf item) > -1
 							objects.splice i, 1
+							objects.emit 'change'
+				objects.emit 'change'
 				@
 			tick: (dt = 16.66) ->
 				ctx.clearRect 0,0,@w,@h
 				for obj in objects
 					obj?.tick dt, @
 				for obj in objects
-					obj.preDraw ctx, @
-					obj.draw ctx, @
-					obj.postDraw ctx, @
-				null
+					try
+						ctx.save()
+						obj.preDraw ctx, @
+						obj.draw ctx, @
+						obj.postDraw ctx, @
+					finally
+						ctx.restore()
+				$.now
 			start: ->
 				return if @started
 				t = $.now
@@ -277,49 +249,19 @@ class Game
 			toggle: ->
 				if @started then @stop() else @start()
 
-class window.TimedScript extends Modular
-	init: ->
-		@tasks = []
-		@elapsed = 0
-	cue: (time, func) ->
-		task = { t: time, f: func }
-		@tasks.splice ($.sortedIndex @tasks, task, 't'), 0, task
-		@
-	tick: (dt, game) ->
-		@elapsed += dt
-		while @tasks.length > 0 and @tasks[0].t < @elapsed
-			@tasks.shift().f(game)
-	@mixin Layer
-	@mixin Destroyable
-
-class Tracer extends Modular
-	init: ->
-		@fps = new SmoothValue 30
-	message: (@msg) -> @
-	tick: (dt) ->
-		@fps.value = 1000/Math.max 1, dt
-		@label = "FPS: #{@fps.value.toFixed 0} DT: #{dt}" + (if @msg then " Message: #{@msg}" else "")
-	@mixin Label
-
-class Ball extends Circle
-	@mixin Velocity
-	@mixin Speed
-
-class Frames
-	init: -> @frame = 0
-	tick: (dt) -> @frame++
-
-window.game = new Game w: 600, h: 400
 readyLatch = Textures.length
 for texture in Textures
+	$.log "Caching texture: #{texture}"
 	new Sprite().image "img/#{texture}", ->
 		if --readyLatch <= 0
 			$.provide "images-ready"
 $(document).ready ->
 	$.depends 'images-ready', ->
-		game.add snow = new TileLayer().image("img/ground-snow1-0.jpg").layerDown().tileSize(256)
-		$("body").zap("style.background", "url(img/ground-snow1-0.jpg) top left repeat")
-		$(game.canvas).click -> game.toggle()
+		window.game = new Game w: window.innerWidth, h: window.innerHeight
+		# game.add window.ground = new TileLayer()
+			# .image("img/dirt.jpg")
+			# .position(0,0,-1)
+			# .tileSize(100)
 
 		points = [
 			[40,0],
@@ -335,9 +277,8 @@ $(document).ready ->
 		for i in [0...points.length-1] by 1
 			[a,b] = points[i]
 			[c,d] = points[i+1]
-			game.add new Circle().position(a,b).fill("blue").radius(2)
-			v = [c-a,d-b]
-			r = VEC_ROTATION(v)
+			v = [c-a,d-b,0]
+			r = VEC_XROT(v) # degrees offset from the [1,0,0] vector
 			w = VEC_MAG(v)
 			halfw = roadWidth / 2
 			if v[1] < 0
@@ -353,24 +294,56 @@ $(document).ready ->
 				a -= halfw
 				w -= halfw
 			w -= halfw
-			d = 0.000001 # decay
-			game.add new Road().position(a,b).size(w,roadWidth).rotation(r).decay(d)
+			d = 0.00001 # decay
+			game.add new Road().position(a,b,0).size(w,roadWidth,0).rotation(r).decay(d)
 			if i < points.length - 1
-				game.add new Intersection().position(a,b).size(roadWidth).rotation(r).decay(d)
+				game.add new Intersection().position(a,b,0).size(roadWidth,roadWidth,0).rotation(r).decay(d)
+		game.add new Road().position(300,215).size(70,roadWidth).rotation(90)
+		# game.add new Intersection().position(300,315).size(roadWidth).rotation(90)
 
 		spawner = ->
 			for i in [0...10] by 1
-				weight = $.random.real(0,1)
+				profile = $.random.real(0,1)
 				game.add b = new Ball()
-					.fill(colors[Math.floor(weight * colors.length)])
-					.radius( 4 + weight*8 )
+					.fill(colors[Math.floor(profile * colors.length)])
+					.radius( 4 + profile*8 )
 					.speed( .02 + (1-profile)*.05 )
 					.position(40,0)
 				for point in points
 					b.addWaypoint(point...)
 
-		game.add window.tracer = new Tracer().position(10,10).layerUp()
+		game.add window.tracer = new Tracer().position(10,10,1000)
+		# game.add new Grass().position(0,0,-1).size(game.w,game.h)
+		game.add new PineTree().position(100,100,1).size(30,100)
 		colors = ["red", "orange", "yellow", "green", "lightblue", "blue"]
-		for j in [0...30] by 1
+		for j in [0...0] by 1
 			$.delay j*5000, spawner
 
+		game.add new StreetLight().position(180,85, 10).size(100).scale(-1,1)
+		# game.add new StreetLight().position(280,115, 10).size(100).scale(-1,-1)
+		game.add new StreetLight().position(385,135, 10).size(100).rotation(90).scale(1,-1)
+		game.add new StreetLight().position(385,295, 10).size(100).rotation(90).scale(1,-1)
+		game.add new StreetLight().position(315,235, 10).size(100).rotation(90).scale(1,-1)
+		game.add new StreetLight().position(185,270, 10).size(100).rotation(90).scale(-1,-1)
+		game.add new StreetLight().position(230,315, 10).size(100).rotation(-180).scale(-1,1)
+		game.add new Sidewalk().position(55,75).size(260,10)
+		game.add new Sidewalk().position(25,115).size(260,10)
+		game.add new Sidewalk().position(315,275).size(40,10)
+		game.add new Sidewalk().position(185,315).size(200,10)
+		game.add new Sidewalk().position(185,175).size(100,10)
+		game.add new Sidewalk().position(325,75).size(200,10).rotation(90)
+		game.add new Sidewalk().position(285,115).size(70,10).rotation(90)
+		game.add new Sidewalk().position(355,0).size(275,10).rotation(90)
+		game.add new Sidewalk().position(25,0).size(125,10).rotation(90)
+		game.add new Sidewalk().position(185,175).size(150,10).rotation(90)
+		game.add new Sidewalk().position(65,0).size(80,10).rotation(90)
+		# game.add new Grass().position(0,0).size(15,135).decay(.0001)
+		# game.add new Grass().position(0,125).size(275,50).decay(.0001)
+		# game.add new Grass().position(385,0).size(25,370).decay(.0001)
+		# game.add new Grass().position(172,325).size(215,45).decay(.0001)
+		# game.add new Grass().position(0,170).size(175,200).decay(.0001)
+		# game.add window.grass = new Grass().position(325,70).size(20,205).decay(.0001)
+
+		game.tick(16.66)
+
+		$.provide 'game'

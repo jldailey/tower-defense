@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>Tower Defense</title>
+		<title>Untitled</title>
 		<script type="text/javascript" src="js/bling.js"></script>
 		<script type="text/javascript" src="js/game.js"></script>
 		<style type="text/css">
@@ -41,25 +41,27 @@
 			<div class='controls'>
 				<button class='delete'>Delete</button>
 			</div>
-		<div>
+		</div>
 		<script type="text/javascript" src="js/coffee-script.js"></script>
 		<script type="text/coffeescript">
-			select = $("#objectBrowser select")
-			filter = $("#objectBrowser .filter")
-			controls = $("#objectBrowser .controls")
-			filter.bind "keyup change blur", ->
-				select.html('')
-				$.log "processing #{window.game.objects.length} objects"
-				for obj in window.game.objects
-					option = document.createElement 'option'
-					option.name = option.value = option.innerText = obj.constructor.name
-					option.setAttribute('data-target', obj.guid)
-					select[0].appendChild option
-				$.log "len: #{select[0].childNodes.length}"
-			.trigger 'change'
-			select.bind 'change', (evt) ->
-				for option in evt.target.selectedOptions
-					Indexed.find(option.getAttribute('data-target'))?.highlight(2000)
+			$.depends 'game', ->
+				select = $("#objectBrowser select")
+				filter = $("#objectBrowser .filter")
+				controls = $("#objectBrowser .controls")
+				filter.bind "keyup change blur", ->
+					select.html('')
+					for obj in window.game.objects
+						option = document.createElement 'option'
+						option.name = option.value = option.innerText = obj.constructor.name
+						option.setAttribute('data-target', obj.guid)
+						select[0].appendChild option
+				.trigger 'change'
+				select.bind 'change', (evt) ->
+					for option in evt.target.selectedOptions
+						Indexed.find(option.getAttribute('data-target'))?.highlight(2000)
+				$(window.game.canvas).click(-> window.game.toggle())
+				window.game.objects.on 'change', -> filter.trigger 'change'
+					
 		</script>
 	</body>
 </html>

@@ -1,4 +1,4 @@
-try require('bling')
+try require 'bling'
 
 $.mixin = (a, b) ->
 	for field,func of b
@@ -6,40 +6,40 @@ $.mixin = (a, b) ->
 		continue unless $.is 'function', func
 		a[field] = MethodChain a[field], func
 	a
-$.mixin.reservedWords = [ 'constructor' ]
-Function::mixin = (obj) -> $.mixin @::, obj; @
-$::mixin = (obj) ->
-	if obj? then @each -> $.mixin @, obj
-	else if @length > 1
-		$.mixin @first(), @slice(1).mixin()
-	else @first()
+$.mixin.reservedWords = [ 'constructor', '__super__' ]
+Function::mixin = (obj) ->
+	$.mixin @::, obj::
+	@
 
-MethodChain = (f, g) ->
-	unless $.is 'function', f
-		_f = f
-		f = -> _f
-	unless $.is 'function', g
-		_g = g
-		g = -> _g
-	if f.isChain
-		return f.append(g)
-	if g.isChain
-		return g.prepend(f)
-
-	funcs = $()
-	adder = (method) -> (func) ->
-		(funcs[method].call funcs, func) if ($.is 'function', func) and funcs.indexOf(func) is -1
-		@
-
-	$.extend (-> funcs.apply(@, arguments).coalesce()),
-		isChain: true
-		append: adder('push')
-		prepend: adder('unshift')
-	.append(f)
-	.append(g)
+emptyArray = []
+class MethodChainOp
+	constructor: (@op, @value) ->
+MethodChain = (funcs...) ->
+	funcs = $(funcs).filter(-> $.is 'function', @)
+	for i in [0...funcs.length] by 1
+		if funcs[i].chain
+			a = funcs[i].chain.length - 1
+			funcs.splice i, 1, funcs[i].chain...
+			i += a
+	$.extend ( (args...) ->
+		x = null
+		for func in funcs
+			x = func.apply(@, args) or x
+			if x?.constructor is MethodChainOp
+				switch x.op
+					when "arguments" then args = x.value
+					when "abort" then return null
+		x
+	),
+		chain: funcs
 
 class Modular extends $.EventEmitter
 	constructor: ->
 		super @
 		@init()
-	init: ->
+	init: -> @
+	clone: ->
+		@init.apply { __proto__: @__proto__ }
+
+if module?
+	$.extend module.exports, {MethodChain, Modular, MethodChainOp}

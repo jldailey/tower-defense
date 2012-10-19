@@ -7,6 +7,9 @@ proxy = (t, array, names...) ->
 			set: (v) -> array[i] = v
 	t
 
+if not window?
+	global.window = global
+
 requestInterval = window.requestAnimationFrame or
 	window.mozRequestAnimationFrame or
 	window.webkitRequestAnimationFrame or
