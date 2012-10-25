@@ -1,28 +1,33 @@
+SHELL:=/bin/bash
 COFFEE=node_modules/.bin/coffee
 BLING=node_modules/bling/dist/bling.js
 MOCHA=node_modules/.bin/mocha
 MOCHA_OPTS=--compilers coffee:coffee-script --globals document,window,Bling,$$,_ -R dot
-SRC_FILES=$(shell ls *.coffee)
-TEST_FILES=$(shell ls test/*.coffee)
-PREPROC=grep -v '^\s*\# ' | perl -ne 's/^\s*[\#]/\#/p; print' | cpp
+JS_FILES:=js/bling.js js/coffee-script.js
+COFFEE_FILES:=$(shell ls *.coffee)
+BUILD_FILES:=$(shell ls *.coffee | sed -E 's@\b@build/@')
+TEST_FILES:=$(shell ls test/*.coffee)
+FILTER_COMMENTS=grep -v '^\s*\# ' | perl -ne 's/^\s*[\#]/\#/p; print'
 
 all: js/game.js js/bling.js js/coffee-script.js
 
 test: all test/pass
 	@echo "All tests are passing."
 
-test/pass: $(MOCHA) $(SRC_FILES) $(TEST_FILES)
+test/pass: $(MOCHA) $(COFFEE_FILES) $(TEST_FILES)
 	$(MOCHA) $(MOCHA_OPTS) $(TEST_FILES) && touch test/pass
-
 
 js:
 	mkdir -p js
 
-peek:
-	cat game.coffee | $(PREPROC) | less
+build:
+	mkdir -p build
 
-js/game.js: js $(SRC_FILES) $(COFFEE) Makefile
-	@cat game.coffee | $(PREPROC) | $(COFFEE) -sc > $@
+build/%.coffee: %.coffee
+	cat $< | $(FILTER_COMMENTS) > $@
+
+js/game.js: js build $(BUILD_FILES) $(COFFEE) Makefile
+	(cd build && cat game.coffee | cpp | ../$(COFFEE) -sc > ../$@)
 
 js/bling.js: js $(BLING)
 	cp $(BLING) js/bling.js
@@ -43,5 +48,4 @@ $(MOCHA):
 	npm install mocha
 
 clean:
-	rm -rf js
-	rm -rf node_modules
+	rm -rf js node_modules build
